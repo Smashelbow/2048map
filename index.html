@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+    <title>Babylon.js sample code</title>
+
+    <!-- Babylon.js -->
+    <script src="babylonjs/dat.gui.min.js"></script>
+    <script src="babylonjs/ammo.js"></script>
+    <script src="babylonjs/cannon.js"></script>
+    <script src="babylonjs/Oimo.js"></script>
+    <script src="babylonjs/earcut.min.js"></script>
+    <script src="babylonjs/babylon.js"></script>
+    <script src="babylonjs/babylonjs.materials.min.js"></script>
+    <script src="babylonjs/babylonjs.proceduralTextures.min.js"></script>
+    <script src="babylonjs/babylonjs.postProcess.min.js"></script>
+    <script src="babylonjs/babylonjs.loaders.js"></script>
+    <script src="babylonjs/babylonjs.serializers.min.js"></script>
+    <script src="babylonjs/babylon.gui.min.js"></script>
+    <script src="babylonjs/babylon.inspector.bundle.js"></script>
+
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+    <script src="https://preview.babylonjs.com/ammo.js"></script>
+    <script src="https://preview.babylonjs.com/cannon.js"></script>
+    <script src="https://preview.babylonjs.com/Oimo.js"></script>
+    <script src="https://preview.babylonjs.com/earcut.min.js"></script>
+    <script src="https://preview.babylonjs.com/babylon.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+    <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+    <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js"></script> -->
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var engine = new BABYLON.Engine(canvas, true);
+
+        var scene = null;
+        var sceneToRender = null;
+        var createDefaultEngine = function () { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false }); };
+        engine.setHardwareScalingLevel(0.25);
+
+        const createScene = () => {
+            const scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color3(0, 0, 0)
+            //const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, 3, new BABYLON.Vector3(0, 0, 0));
+            //camera.attachControl(canvas, true);
+
+            const light = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(3, -8, -3), scene);
+            // const light = new BABYLON.HemisphericLight("hemLight", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 3.5
+            light.specular = BABYLON.Color3.Black()
+            light.autoCalcShadowZBounds = true
+
+            //hdr环境贴图
+
+            var hdrTexture = new BABYLON.HDRCubeTexture("hdr/chun.hdr", scene, 128, false, true, false, true);
+
+            scene.environmentTexture = hdrTexture
+            scene.environmentIntensity = 0.5
+
+            // scene.debugLayer.show({ showExplorer: true });//传说中的inspector调试工具
+
+            // scene.enablePhysics();
+            BABYLON.SceneLoader.Append("mesh/", "dnf.gltf", scene, function (scene) {
+                //创建预设灯光和摄像头，应该会自动对准模型，应该是，除非不是
+                var camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, 0, 10, new BABYLON.Vector3(0, 0, 0), scene);
+
+                // Camera.setPosition(new BABYLON.Vector3(-25, 3, 0));
+                camera.fov = 1
+                camera.attachControl(canvas, true);
+                camera.radius = 10
+                camera.wheelPrecision = 20
+                camera.minZ = 0.1
+                camera.lowerRadiusLimit = 1
+                camera.upperRadiusLimit = 10
+                camera.inertia = 0.2
+                camera.panningInertia = 0.2
+                camera.panningSensibility = 100
+                camera.angularSensibilityX = 100
+                camera.angularSensibilityY = 100
+                camera.upperAlphaLimit = Math.PI / 2
+                camera.lowerAlphaLimit = Math.PI / 2
+                camera.upperBetaLimit = Math.PI / 4
+
+                BABYLON.ParticleHelper.ParseFromFileAsync("snowPtc", "ptc/snowPtc.json", scene, true).then((set) => {
+                    set.start();
+                });
+
+                var watMat = new BABYLON.NodeMaterial("watMat", scene);
+                watMat.loadAsync("mat/watMat.json").then(function () {
+
+
+                    watMat.build(true)
+                    // lanscaMat.getInputBlockByPredicate((b) => b.name === "diffuseCut").value = 0.21
+                    // lanscaMat.getInputBlockByPredicate((b) => b.name === "shadowItensity").value = 0.74
+                    watMat.transparencyMode = 1
+                    scene.meshes.forEach(m => {
+                        if (m.name == "water") {
+                            m.material = watMat
+
+                        }
+
+                    })
+
+                })
+
+
+
+                scene.meshes.forEach(mesh => {
+                    if (mesh.name.indexOf("dnfland") !== -1) {
+                        mesh.material.unlit = true
+                        mesh.material.alphaCutOff = 0.5
+                        mesh.material.transparencyMode = 1
+
+                    }
+
+
+                    if (mesh.name == "dnfland_01") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.uOffset = 0.25
+                    }
+
+
+                    if (mesh.name == "dnfland_02") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.uOffset = 0.5
+                    }
+
+
+                    if (mesh.name == "dnfland_03") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.uOffset = 0.75
+                    }
+
+
+                    if (mesh.name == "dnfland_04") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.vOffset = 0.25
+                    }
+
+
+                    if (mesh.name == "dnfland_05") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.vOffset = 0.25
+                        mesh.material.opacityTexture.uOffset = 0.25
+                    }
+
+
+                    if (mesh.name == "dnfland_06") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.vOffset = 0.25
+                        mesh.material.opacityTexture.uOffset = 0.5
+                    }
+
+
+                    if (mesh.name == "dnfland_07") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.vOffset = 0.25
+                        mesh.material.opacityTexture.uOffset = 0.75
+                    }
+
+
+                    if (mesh.name == "dnfland_08") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.vOffset = 0.5
+                        mesh.material.opacityTexture.uOffset = 0
+                    }
+
+
+                    if (mesh.name == "dnfland_09") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.vOffset = 0.5
+                        mesh.material.opacityTexture.uOffset = 0.25
+                    }
+
+
+                    if (mesh.name == "dnfland_10") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.vOffset = 0.5
+                        mesh.material.opacityTexture.uOffset = 0.5
+                    }
+
+
+                    if (mesh.name == "dnfland_11") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.vOffset = 0.5
+                        mesh.material.opacityTexture.uOffset = 0.75
+                    }
+
+
+                    if (mesh.name == "dnfland_12") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.vOffset = 0.75
+                        mesh.material.opacityTexture.uOffset = 0.25
+                    }
+
+
+                    if (mesh.name == "dnfland_13") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.vOffset = 0.75
+                        mesh.material.opacityTexture.uOffset = 0.5
+                    }
+
+
+                    if (mesh.name == "dnfland_14") {
+                        mesh.material.opacityTexture = new BABYLON.Texture(
+                            "mesh/tex/mask.jpg",
+                            scene,
+                            false,
+                            false);
+                        mesh.material.opacityTexture.getAlphaFromRGB = true;
+                        mesh.material.opacityTexture.uScale = 0.25
+                        mesh.material.opacityTexture.vScale = 0.25
+                        mesh.material.opacityTexture.vOffset = 0.75
+                        mesh.material.opacityTexture.uOffset = 0.75
+                    }
+
+                })
+
+
+
+
+
+
+                scene.textures.forEach(t => {
+                    t.wrapU = BABYLON.Constants.TEXTURE_CLAMP_ADDRESSMODE;
+                    t.wrapV = BABYLON.Constants.TEXTURE_CLAMP_ADDRESSMODE;
+                })
+
+                var rect = engine.getRenderingCanvasClientRect();
+
+                var hw = rect.width
+
+                var hh = rect.height
+
+                console.log(rect.width);
+
+                var ortCamFOV = 1000
+
+
+                var camecosize = 6
+                scene.registerBeforeRender(function () {
+                    camecosize = 1 + (8 - camera.radius * 0.2)
+                    rect = engine.getRenderingCanvasClientRect();
+
+                    hw = rect.width / ortCamFOV;
+
+                    hh = rect.height / ortCamFOV;
+                    camera.orthoLeft = -hw * camera.radius;
+
+                    camera.orthoRight = hw * camera.radius;
+
+                    camera.orthoBottom = -hh * camera.radius;
+
+                    camera.orthoTop = hh * camera.radius;
+
+                    camera.target.y = -1.5
+
+                    camera.beta = (0.785 - camera.radius * Math.PI / 4 / 10) * 1.5
+
+                    if (camera.target.x > camecosize) { camera.target.x = camecosize }
+                    if (camera.target.x < -camecosize) { camera.target.x = -camecosize }
+                    if (camera.target.z > camecosize) { camera.target.z = camecosize }
+                    if (camera.target.z < -camecosize) { camera.target.z = -camecosize }
+                    // camera.beta = 0.01 - 0.01
+                    camera.wheelPrecision = 40 / camera.radius
+                    camera.panningSensibility = 1000 / camera.radius
+                    camera.pinchPrecision = 2000 / camera.radius
+
+
+                })
+                var postMat = new BABYLON.NodeMaterial("postMat", scene);
+                postMat.loadAsync("mat/postMat.json").then(function () {
+
+
+                    postMat.build(true)
+
+                    const postProcess = postMat.createPostProcess(camera, 1.0, BABYLON.Constants.TEXTURE_LINEAR_LINEAR);
+                    scene.registerBeforeRender(function () {
+
+                        postMat.getInputBlockByPredicate((b) => b.name === "height").value = camera.radius / 10
+                        postMat.getInputBlockByPredicate((b) => b.name === "camtarx").value = camera.target.x
+                        postMat.getInputBlockByPredicate((b) => b.name === "camtarz").value = camera.target.z
+                        postMat.getInputBlockByPredicate((b) => b.name === "hh").value = hh
+                        postMat.getInputBlockByPredicate((b) => b.name === "hw").value = hw
+                    })
+
+
+                    // postProcess.samples = 8;
+
+
+                })
+                scene.materials.forEach(mat => {
+                    mat.albedoColor = BABYLON.Color3.White()
+                    mat.roughness = 0.7
+                    mat.backFaceCulling = false
+                    mat.indexOfRefraction = 0.7
+                    // mat.metallicF0Factor = 4
+
+                })
+
+                // var rl = []
+                // scene.meshes.forEach(mesh => {
+
+                //     if (mesh.name.indexOf("SkyBox") !== -1) {
+
+                //     } else {
+                //         rl.push(mesh)
+                //         mesh.receiveShadows = true;
+                //     }
+
+                // })
+                // var shadowGenerator = new BABYLON.ShadowGenerator(2048, light, true);
+                // shadowGenerator.getShadowMap().renderList = rl
+                // shadowGenerator.setDarkness(0);
+                // shadowGenerator.filter = BABYLON.ShadowGenerator.FILTER_PCF;//应该有模糊投影才对，但是没有
+                // // shadowGenerator.usePoissonSampling = true;
+                // //shadowGenerator.useContactHardeningShadow = true;
+                // // shadowGenerator.usePercentageCloserFiltering = true;//应该有模糊投影才对，但是没有
+                // // shadowGenerator.contactHardeningLightSizeUVRatio = 0.03
+                // shadowGenerator.bias = 0.003
+
+            });
+
+
+
+            // var gl = new BABYLON.GlowLayer("glow", scene);
+
+
+
+            //抗锯齿，辉光,红蓝偏移，锐化,杂色
+            var defaultPipeline = new BABYLON.DefaultRenderingPipeline("default", false, scene, [scene.activeCamera]);
+            // defaultPipeline.fxaaEnabled = true;
+            // defaultPipeline.bloomEnabled = true
+            // defaultPipeline.bloomKernel = 128
+            // defaultPipeline.bloomWeight = 0.2
+            // defaultPipeline.bloomThreshold = 0.99
+            defaultPipeline.samples = 8
+            // defaultPipeline.chromaticAberrationEnabled = true
+            // defaultPipeline.chromaticAberration.aberrationAmount = 10
+            // defaultPipeline.chromaticAberration.radialIntensity = 1
+            // defaultPipeline.sharpenEnabled = true
+            // defaultPipeline.sharpen.edgeAmount = 0.2
+            // defaultPipeline.sharpen.colorAmount = 1
+            // defaultPipeline.grainEnabled = true
+            // defaultPipeline.grain.intensity = 4
+            // defaultPipeline.imageProcessing.vignetteEnabled = true
+            // defaultPipeline.imageProcessing.vignetteWeight = 10
+            // defaultPipeline.imageProcessing.vignetteCameraFov = 0.15
+            // defaultPipeline.imageProcessing.vignetteStretch = 1
+            // defaultPipeline.imageProcessing.contrast = 1
+            // defaultPipeline.imageProcessing.exposure = 1.3
+            // defaultPipeline.imageProcessing.toneMappingEnabled = true
+
+            return scene;
+        }
+        window.initFunction = async function () {
+            var asyncEngineCreation = async function () {
+                try {
+                    return createDefaultEngine();
+                } catch (e) {
+                    console.log("the available createEngine function failed. Creating the default engine instead");
+                    return createDefaultEngine();
+                }
+            }
+
+            window.engine = await asyncEngineCreation();
+            if (!engine) throw 'engine should not be null.';
+            window.scene = createScene();
+        };
+        initFunction().then(() => {
+            sceneToRender = scene
+            engine.runRenderLoop(function () {
+                if (sceneToRender && sceneToRender.activeCamera) {
+                    sceneToRender.render();
+                }
+            });
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+
+</html>
